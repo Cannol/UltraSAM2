@@ -1,9 +1,8 @@
 import os
-import time
 import logging, coloredlogs
+import json
 from collections import OrderedDict
-from sam2.configs import LOGGER_CONFIG_FILE, LOGS_DIR, if_not_create
-from sam2.configs import get_configs_ordered as _logger_configs
+from sam2.configs import LOGGER_CONFIG_FILE, LogsPath
 
 '''
 通过这个脚本中的内容我们可以实现在任何一个地方对整个系统的日志进行统一的输出
@@ -27,7 +26,8 @@ class LoggerManager(object):
     __all_files = {}
 
     def __init__(self, config_file):
-        cf: OrderedDict = _logger_configs(config_file)
+        with open(config_file) as f:
+            cf: OrderedDict = json.load(f)
         __global = cf['global']
         self.LEVELS = __global['levels']
         self.LEVELS_DICT = {key: i for i, key in enumerate(self.LEVELS)}
@@ -40,13 +40,11 @@ class LoggerManager(object):
         self.LOGGING_FORMAT = __default['format']
         self.LOGGING_FORMAT_FILE = __default['format_file']
         self.DEFAULT_FILE = __default['out_file']
-
-        self.TIME_STAMP = time.strftime('%Y%m%d_%H%M%S', time.localtime(time.time()))
-        self.LOGS_DIR = os.path.join(LOGS_DIR, self.TIME_STAMP)
+        self.LOGS_DIR = LogsPath
 
         __root = cf['root']
         self.level = __root['log_level']
-        self.out_file = __root['out_file']
+        self.out_file = __root['out_file'] if __root['out_file'] else self.DEFAULT_FILE
         self.name = __root['name']
         self.format = __root.get('format')
         self.format_file = __root.get('format_file')
@@ -83,7 +81,6 @@ class LoggerManager(object):
         fh = self.__all_files.get(file_name)
         if fh is None:
             full_path = os.path.join(self.LOGS_DIR, file_name)
-            if_not_create(self.LOGS_DIR)
             fh = logging.FileHandler(full_path, 'w')
             if fmt is None:
                 fmt = self.LOGGING_FORMAT_FILE
